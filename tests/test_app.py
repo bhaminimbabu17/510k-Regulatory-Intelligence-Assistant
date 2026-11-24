@@ -42,11 +42,21 @@ def test_summarize_flag(capsys):
             from tests.fakes import FakeResponse
             return FakeResponse(404)
 
-    def model(system, prompt):
-        return "- Generic Infusion Pump"
+def model(system, prompt):
+    return "- Generic Infusion Pump"
 
     main(["pump", "--summarize", "1"],
-         client=StubClient([record("K1"), record("K2"), record("K3")]),
-         pdf_session=PdfSession(), model=model)
+    client=StubClient([record("K1"), record("K2"), record("K3")]),
+    pdf_session=PdfSession(), model=model)
     out = capsys.readouterr().out
     assert "[AI-generated] Summary:" in out and "Sources: K1" in out
+
+def test_insights_flag(capsys):
+    def model(system, prompt):
+        return "Example Medical Inc. appears in every submission."
+
+    main(["pump", "--insights"], client=StubClient([record("K1"), record("K2"), record("K3")]),
+        model=model)
+    out = capsys.readouterr().out
+    assert "Insights:" in out and "For research only" in out
+    assert "[AI-generated insight]" in out
