@@ -5,6 +5,7 @@ import sys
 from src.ai_client import call_model
 from src.ai_summary import summarize_submission
 from src.fda_client import FDAClient, FDADataUnavailable
+from src.insights import build_insights, format_insights
 from src.landscape import format_landscape, summarize_landscape
 from src.predicates import fetch_summary_text, get_predicates
 from src.results import filter_results, format_result, format_table
@@ -27,6 +28,8 @@ def build_parser():
                    help="read summary PDFs for predicate devices (slower)")
     p.add_argument("--summarize", type=int, metavar="N", default=0,
                    help="AI summaries for the first N results (needs ANTHROPIC_API_KEY)")
+    p.add_argument("--insights", action="store_true",
+                   help="patterns across results, with an AI narrative if a key is set")
     return p
 
 
@@ -46,12 +49,16 @@ def main(argv=None, client=None, pdf_session=None, model=call_model):
                              args.product_code, args.from_year, args.to_year)
     print(f"{len(results)} submission(s) for \"{args.query}\"\n")
     print(format_table(results))
-    if args.landscape or args.predicates:
+    retrieved = [r["k_number"] for r in results]
+    if args.landscape or args.predicates or args.insights:
         info = None
         if args.predicates:
             info = [get_predicates(r["k_number"], pdf_session) for r in results]
-        print("\n" + format_landscape(summarize_landscape(results, info)))
-    retrieved = [r["k_number"] for r in results]
+        summary = summarize_landscape(results, info)
+        if args.landscape or args.predicates:
+            print("\n" + format_landscape(summary))
+        if args.insights:
+            print("\n" + format_insights(build_insights(summary, retrieved, model)))
     for r in results[:args.summarize]:
         text = fetch_summary_text(r["k_number"], pdf_session)
         item = release(summarize_submission(r, text, model), retrieved)  # FR-7.2
