@@ -35,3 +35,18 @@ def test_fda_outage_shows_clear_error(capsys):  # FR-2.3
 def test_landscape_flag(capsys):
     main(["pump", "--landscape"], client=StubClient([record("K1"), record("K2"), record("K3")]))
     assert "Regulatory landscape (3 submissions)" in capsys.readouterr().out
+
+def test_summarize_flag(capsys):
+    class PdfSession:
+        def get(self, *a, **k):
+            from tests.fakes import FakeResponse
+            return FakeResponse(404)
+
+    def model(system, prompt):
+        return "- Generic Infusion Pump"
+
+    main(["pump", "--summarize", "1"],
+         client=StubClient([record("K1"), record("K2"), record("K3")]),
+         pdf_session=PdfSession(), model=model)
+    out = capsys.readouterr().out
+    assert "[AI-generated] Summary:" in out and "Sources: K1" in out

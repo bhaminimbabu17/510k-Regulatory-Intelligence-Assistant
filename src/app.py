@@ -2,11 +2,14 @@
 import argparse
 import sys
 
+from src.ai_client import call_model
+from src.ai_summary import summarize_submission
 from src.fda_client import FDAClient, FDADataUnavailable
 from src.landscape import format_landscape, summarize_landscape
-from src.predicates import get_predicates
+from src.predicates import fetch_summary_text, get_predicates
 from src.results import filter_results, format_result, format_table
 from src.search import search_devices
+from src.traceability import format_ai_output, release
 
 DISCLAIMER = ("Research support only. This tool does not make regulatory pathway "
               "determinations; review the FDA source records yourself.")
@@ -22,10 +25,12 @@ def build_parser():
     p.add_argument("--landscape", action="store_true", help="show patterns across results")
     p.add_argument("--predicates", action="store_true",
                    help="read summary PDFs for predicate devices (slower)")
+    p.add_argument("--summarize", type=int, metavar="N", default=0,
+                   help="AI summaries for the first N results (needs ANTHROPIC_API_KEY)")
     return p
 
 
-def main(argv=None, client=None, pdf_session=None):
+def main(argv=None, client=None, pdf_session=None, model=call_model):
     args = build_parser().parse_args(argv)
     client = client or FDAClient()
     try:
@@ -46,6 +51,11 @@ def main(argv=None, client=None, pdf_session=None):
         if args.predicates:
             info = [get_predicates(r["k_number"], pdf_session) for r in results]
         print("\n" + format_landscape(summarize_landscape(results, info)))
+    retrieved = [r["k_number"] for r in results]
+    for r in results[:args.summarize]:
+        text = fetch_summary_text(r["k_number"], pdf_session)
+        item = release(summarize_submission(r, text, model), retrieved)  # FR-7.2
+        print("\n" + r["k_number"] + "\n" + format_ai_output(item))
     if found.suggestions:  # FR-1.2 / FR-1.3
         print("\nFew results. Suggestions:")
         for s in found.suggestions:
