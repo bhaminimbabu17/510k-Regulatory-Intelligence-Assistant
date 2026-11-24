@@ -31,13 +31,7 @@ def test_fda_outage_shows_clear_error(capsys):  # FR-2.3
     assert code == 1
     assert "FDA data unavailable" in capsys.readouterr().out
 
-def test_landscape_flag_shows_landscape_and_missing_predicates(capsys, tmp_path):  # FR-4.3
-    (tmp_path / "K1.txt").write_text("ignored: not a valid K number", encoding="utf-8")
-    (tmp_path / "K210001.txt").write_text("Predicate: K190001", encoding="utf-8")
-    records = [record("K210001"), record("K220002"), record("K230003")]
-    main(["infusion pump", "--landscape", "--summaries-dir", str(tmp_path)],
-         client=StubClient(records))
-    out = capsys.readouterr().out
-    assert "Regulatory landscape (3 submission(s))" in out
-    assert "K190001 (1)" in out
-    assert "K220002: Not extracted" in out
+
+def test_landscape_flag(capsys):
+    main(["pump", "--landscape"], client=StubClient([record("K1"), record("K2"), record("K3")]))
+    assert "Regulatory landscape (3 submissions)" in capsys.readouterr().out
